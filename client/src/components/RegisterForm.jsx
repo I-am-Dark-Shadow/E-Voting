@@ -3,11 +3,12 @@ import { User, Mail, Fingerprint, Camera, CheckCircle2, Loader2, Users, ShieldCh
 import { getFullFaceDescription } from '../utils/faceUtils';
 import { registerUser } from '../services/api';
 
-const RegisterForm = ({ onRegistrationSuccess }) => {
+// `modelsLoaded` prop টি এখানে যোগ করা হয়েছে
+const RegisterForm = ({ onRegistrationSuccess, modelsLoaded }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [voterId, setVoterId] = useState('');
-  const [role, setRole] = useState('voter'); // Default role
+  const [role, setRole] = useState('voter');
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const [status, setStatus] = useState('');
@@ -39,15 +40,22 @@ const RegisterForm = ({ onRegistrationSuccess }) => {
     setStatus('Analyzing image...');
     setIsLoading(true);
 
-    const fullDesc = await getFullFaceDescription(file);
-    if (!fullDesc) {
-      setError('No face detected or face is unclear. Please use a clear, front-facing photo.');
-      setStatus('');
-    } else {
-      setStatus('✅ Face detected successfully!');
-      setFaceDescriptor(Array.from(fullDesc.descriptor));
+    try {
+        const fullDesc = await getFullFaceDescription(file);
+        if (!fullDesc) {
+          setError('No face detected or face is unclear. Please use a clear, front-facing photo.');
+          setStatus('');
+        } else {
+          setStatus('✅ Face detected successfully!');
+          setFaceDescriptor(Array.from(fullDesc.descriptor));
+        }
+    } catch (err) {
+        setError('Could not analyze the image. Please try again.');
+        setStatus('');
+    } finally {
+        setIsLoading(false);
+        URL.revokeObjectURL(previewUrl); // Clean up the object URL
     }
-    setIsLoading(false);
   };
 
   const handleSubmit = async (e) => {
@@ -82,7 +90,6 @@ const RegisterForm = ({ onRegistrationSuccess }) => {
   };
 
   return (
-    // ফর্মটিকে মাঝখানে আনার জন্য max-w-2xl এবং mx-auto যোগ করা হয়েছে
     <form onSubmit={handleSubmit} className="space-y-6 p-4 sm:p-6 bg-black/20 rounded-xl max-w-2xl mx-auto">
       <div className="relative overflow-hidden rounded-xl ring-1 ring-white/10 bg-white/5 h-64 flex items-center justify-center">
         {imagePreview ? (
@@ -98,9 +105,7 @@ const RegisterForm = ({ onRegistrationSuccess }) => {
         {isLoading ? status : error || status}
       </p>
 
-      {/* ইনপুট ফিল্ডগুলি এখন সব স্ক্রিনে সুন্দর দেখাবে */}
       <div className="space-y-4">
-        {/* Row 1: Name and Email */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-xs text-slate-400">Voter Name</label>
@@ -117,7 +122,6 @@ const RegisterForm = ({ onRegistrationSuccess }) => {
             </div>
           </div>
         </div>
-        {/* Row 2: Voter ID */}
         <div>
             <label className="text-xs text-slate-400">Voter ID Number</label>
             <div className="mt-1 flex items-center gap-2 rounded-lg bg-white/5 ring-1 ring-white/10 px-3 py-2.5 focus-within:ring-fuchsia-400/30 transition">
@@ -125,7 +129,6 @@ const RegisterForm = ({ onRegistrationSuccess }) => {
               <input value={voterId} onChange={(e) => setVoterId(e.target.value)} type="text" placeholder="ABC1234567" className="w-full bg-transparent text-sm placeholder-slate-500 focus:outline-none" />
             </div>
         </div>
-        {/* Row 3: User Role Buttons */}
         <div>
             <label className="text-xs text-slate-400 mb-2 block">User Role</label>
             <div className="grid grid-cols-2 gap-3">
@@ -148,11 +151,25 @@ const RegisterForm = ({ onRegistrationSuccess }) => {
       </div>
 
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-        <button type="button" onClick={() => fileInputRef.current.click()} disabled={isLoading} className="w-full sm:w-auto group relative flex justify-center items-center gap-2 rounded-lg px-4 py-2.5 text-sm text-slate-100 ring-1 ring-fuchsia-400/30 bg-fuchsia-400/10 hover:bg-fuchsia-400/15 transition">
+        <button 
+          type="button" 
+          onClick={() => fileInputRef.current.click()} 
+          // `modelsLoaded` false হলে বাটনটি disabled থাকবে
+          disabled={isLoading || !modelsLoaded} 
+          className="w-full sm:w-auto group relative flex justify-center items-center gap-2 rounded-lg px-4 py-2.5 text-sm text-slate-100 ring-1 ring-fuchsia-400/30 bg-fuchsia-400/10 hover:bg-fuchsia-400/15 transition disabled:opacity-50 disabled:cursor-wait"
+        >
           <Camera className="h-4 w-4" />
-          Choose Photo
+          {modelsLoaded ? 'Choose Photo' : 'Loading Models...'}
         </button>
-        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          onChange={handleFileChange} 
+          accept="image/*" 
+          className="hidden" 
+          // মডেল লোড না হওয়া পর্যন্ত ইনপুটটিও disabled থাকবে
+          disabled={!modelsLoaded}
+        />
 
         <button type="submit" disabled={isLoading || !faceDescriptor} className="w-full sm:w-auto group relative flex justify-center items-center gap-2 rounded-lg px-4 py-2.5 text-sm text-slate-100 ring-1 ring-white/10 bg-white/5 hover:bg-white/10 transition disabled:opacity-40 disabled:cursor-not-allowed">
           {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}

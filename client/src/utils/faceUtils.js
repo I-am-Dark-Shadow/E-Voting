@@ -1,17 +1,22 @@
 import * as faceapi from 'face-api.js';
 
 const MODEL_URL = '/models';
+let modelsLoaded = false;
 
-// Function to load all the required models
+// Function to load all the required models, but only once
 export async function loadModels() {
+  if (modelsLoaded) {
+    console.log("Models are already loaded.");
+    return;
+  }
   try {
     console.log("Loading Face-API models...");
     await Promise.all([
-      faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+      faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
       faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
       faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-      faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
     ]);
+    modelsLoaded = true;
     console.log("Face-API models loaded successfully");
   } catch (error) {
     console.error("Error loading face-api models:", error);
@@ -19,32 +24,30 @@ export async function loadModels() {
 }
 
 // Function to detect a single face and compute its descriptor
-export async function getFullFaceDescription(blob, inputSize = 512) {
+export async function getFullFaceDescription(blob) {
   if (!blob) {
     return null;
   }
   
-  const scoreThreshold = 0.5;
-  const options = new faceapi.SsdMobilenetv1Options({
-    minConfidence: scoreThreshold,
-  });
+  // Ensure models are loaded before proceeding
+  if (!modelsLoaded) {
+    console.error("Models not loaded yet. Call loadModels() first.");
+    await loadModels(); // Attempt to load them again if not loaded
+  }
 
-  // Create a temporary URL from the blob/file
-  const url = URL.createObjectURL(blob);
-  
+  const options = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
+
   try {
-    // Create an HTML image element from the URL
-    const img = await faceapi.fetchImage(url);
+    const image = await faceapi.fetchImage(blob);
     
-    // Detect face with landmarks and descriptor
     const fullDesc = await faceapi
-      .detectSingleFace(img, options)
+      .detectSingleFace(image, options)
       .withFaceLandmarks()
       .withFaceDescriptor();
     
     return fullDesc;
-  } finally {
-    // Free up memory by revoking the temporary URL
-    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error("Error in getFullFaceDescription:", error);
+    return null;
   }
 }

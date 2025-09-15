@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import ResultsChart from '../components/ResultsChart';
 import RegisterForm from '../components/RegisterForm';
 import AddCandidateForm from '../components/AddCandidateForm';
+import { loadModels } from '../utils/faceUtils'; // মডেল লোডার ইম্পোর্ট করুন
 
 const AdminDashboard = () => {
   const { user, logout } = useAuth();
@@ -15,6 +16,18 @@ const AdminDashboard = () => {
   const [totalVotes, setTotalVotes] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState('');
+  
+  // নতুন স্টেট: মডেল লোড হয়েছে কিনা তা ট্র্যাক করার জন্য
+  const [modelsLoaded, setModelsLoaded] = useState(false);
+
+  // কম্পোনেন্ট মাউন্ট হওয়ার সাথে সাথে মডেল লোড করার জন্য useEffect
+  useEffect(() => {
+    const setup = async () => {
+      await loadModels();
+      setModelsLoaded(true);
+    };
+    setup();
+  }, []);
 
   useEffect(() => {
     if (activeTab === 'results') {
@@ -61,9 +74,7 @@ const AdminDashboard = () => {
         </button>
       </header>
 
-      {/* Tabs - শুধুমাত্র বাটন ডিজাইন পরিবর্তন করা হয়েছে */}
       <div className="max-w-7xl mx-auto mb-8 overflow-x-auto">
-          {/* `border-b` সরিয়ে `space-x-2` যোগ করা হয়েছে */}
           <div className="flex items-center space-x-2">
             <TabButton icon={<PieChart size={16}/>} label="Results" activeTab={activeTab} onClick={() => setActiveTab('results')} />
             <TabButton icon={<UserPlus size={16}/>} label="Register" activeTab={activeTab} onClick={() => setActiveTab('registerUser')} />
@@ -81,21 +92,21 @@ const AdminDashboard = () => {
         {activeTab === 'results' && (
             isLoading ? <Loader2 className="mx-auto h-8 w-8 animate-spin" /> : <ResultsChart results={results} />
         )}
-        {activeTab === 'registerUser' && <RegisterForm onRegistrationSuccess={(newUser) => showNotification(`User '${newUser.name}' created successfully.`)} />}
+        {/* `modelsLoaded` propটি RegisterForm-এ পাস করা হচ্ছে */}
+        {activeTab === 'registerUser' && <RegisterForm onRegistrationSuccess={(newUser) => showNotification(`User '${newUser.name}' created successfully.`)} modelsLoaded={modelsLoaded} />}
         {activeTab === 'addCandidate' && <AddCandidateForm onCandidateAdded={(newCand) => showNotification(`Candidate '${newCand.name}' added successfully.`)} />}
       </div>
     </main>
   );
 };
 
-// Tab গুলির জন্য helper component-টিকে বাটন ডিজাইনে পরিবর্তন করা হয়েছে
 const TabButton = ({ icon, label, activeTab, onClick }) => (
     <button 
         onClick={onClick} 
         className={`flex-shrink-0 flex items-center gap-2 px-3 lg:px-4 py-2 text-xs lg:text-sm font-medium transition rounded-lg ${
             activeTab === label.toLowerCase().replace(' ', '') 
-                ? 'bg-white/10 text-white shadow-md' // Active Button Style
-                : 'text-slate-400 hover:bg-white/5 hover:text-slate-200' // Inactive Button Style
+                ? 'bg-white/10 text-white shadow-md'
+                : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
         }`}
     >
         {icon} {label}
