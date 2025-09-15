@@ -6,7 +6,6 @@ let modelsLoaded = false;
 // Function to load all the required models, but only once
 export async function loadModels() {
   if (modelsLoaded) {
-    console.log("Models are already loaded.");
     return;
   }
   try {
@@ -29,16 +28,19 @@ export async function getFullFaceDescription(blob) {
     return null;
   }
   
-  // Ensure models are loaded before proceeding
   if (!modelsLoaded) {
-    console.error("Models not loaded yet. Call loadModels() first.");
-    await loadModels(); // Attempt to load them again if not loaded
+    console.error("Models not loaded yet. Attempting to load now...");
+    await loadModels();
   }
 
-  const options = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
-
+  // blob (File object) থেকে একটি অস্থায়ী URL তৈরি করা হচ্ছে
+  const url = URL.createObjectURL(blob);
+  
   try {
-    const image = await faceapi.fetchImage(blob);
+    const options = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
+    
+    // fetchImage-কে এখন blob-এর পরিবর্তে অস্থায়ী URLটি দেওয়া হচ্ছে
+    const image = await faceapi.fetchImage(url);
     
     const fullDesc = await faceapi
       .detectSingleFace(image, options)
@@ -49,5 +51,8 @@ export async function getFullFaceDescription(blob) {
   } catch (error) {
     console.error("Error in getFullFaceDescription:", error);
     return null;
+  } finally {
+    // মেমোরি লিক এড়ানোর জন্য অস্থায়ী URLটিকে রিলিজ করে দেওয়া হচ্ছে
+    URL.revokeObjectURL(url);
   }
 }
